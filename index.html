@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PassGuard – Password Security Toolkit</title>
+<style>
+:root{--bg:#0b1020;--card:#141b34;--line:#252f55;--txt:#e8ecff;--mut:#8f9bc7;--ok:#2ecc71;--warn:#f5a524;--bad:#ff4d6d;--acc:#5b8cff}
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt)}
+header{padding:28px 16px 8px;text-align:center}h1{margin:0;font-size:2rem}h1 span{color:var(--acc)}
+header p{color:var(--mut);margin:6px 0 0}
+main{max-width:860px;margin:auto;padding:16px;display:grid;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px}
+h2{margin:0 0 12px;font-size:1.1rem}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+input[type=text],input[type=password]{flex:1;min-width:200px;padding:12px;border-radius:10px;border:1px solid var(--line);background:#0e1430;color:var(--txt);font-size:1rem}
+button{padding:12px 16px;border:0;border-radius:10px;background:var(--acc);color:#fff;font-weight:600;cursor:pointer}
+button.alt{background:#27325e}
+.bar{height:10px;background:#0e1430;border-radius:99px;overflow:hidden;margin:14px 0 6px}
+.bar div{height:100%;width:0;transition:.3s}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-top:10px}
+.stat{background:#0e1430;border-radius:10px;padding:12px}.stat small{color:var(--mut);display:block}.stat b{font-size:1.15rem}
+ul{list-style:none;padding:0;margin:12px 0 0;display:grid;gap:6px}
+li::before{content:"✗ ";color:var(--bad)}li.ok::before{content:"✓ ";color:var(--ok)}
+#breach{margin-top:12px;padding:12px;border-radius:10px;display:none}
+.lbl{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0;color:var(--mut)}
+footer{text-align:center;color:var(--mut);padding:20px;font-size:.85rem}
+</style>
+</head>
+<body>
+<header>
+  <h1>Pass<span>Guard</span></h1>
+  <p>Analyze password strength, check for data breaches privately, and generate secure passwords.</p>
+</header>
+<main>
+  <section class="card">
+    <h2>🔍 Password Analyzer</h2>
+    <div class="row">
+      <input id="pw" type="password" placeholder="Type a password to test (never leaves your browser)" autocomplete="off">
+      <button class="alt" id="toggle">Show</button>
+      <button id="breachBtn">Check Breaches</button>
+    </div>
+    <div class="bar"><div id="fill"></div></div>
+    <strong id="verdict">Enter a password</strong>
+    <div class="stats">
+      <div class="stat"><small>Length</small><b id="sLen">0</b></div>
+      <div class="stat"><small>Entropy</small><b id="sEnt">0 bits</b></div>
+      <div class="stat"><small>Crack time*</small><b id="sTime">–</b></div>
+    </div>
+    <ul id="checks"></ul>
+    <div id="breach"></div>
+    <p style="color:var(--mut);font-size:.8rem">*Assumes 10 billion guesses/second offline attack. Breach check uses the HaveIBeenPwned k‑anonymity API: only the first 5 characters of the SHA‑1 hash are sent; your password never leaves your device.</p>
+  </section>
+
+  <section class="card">
+    <h2>🎲 Secure Password Generator</h2>
+    <div class="row"><input id="out" type="text" readonly placeholder="Generated password"><button id="gen">Generate</button><button class="alt" id="copy">Copy</button></div>
+    <div class="lbl">
+      <label>Length: <input id="len" type="range" min="8" max="64" value="16"> <span id="lenV">16</span></label>
+      <label><input type="checkbox" id="cU" checked> A‑Z</label>
+      <label><input type="checkbox" id="cL" checked> a‑z</label>
+      <label><input type="checkbox" id="cN" checked> 0‑9</label>
+      <label><input type="checkbox" id="cS" checked> Symbols</label>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>📚 Quick Security Tips</h2>
+    <ul style="margin:0"><li class="ok">Use a unique password for every account.</li><li class="ok">Prefer long passphrases (16+ characters).</li><li class="ok">Use a password manager and enable 2FA.</li><li class="ok">Change passwords immediately if found in a breach.</li></ul>
+  </section>
+</main>
+<footer>PassGuard · Cybersecurity Awareness Project · Campus Outreach Team</footer>
+
+<script>
+const COMMON=["password","123456","12345678","qwerty","abc123","letmein","admin","welcome","iloveyou","monkey","dragon","111111","123123","password1","qwerty123","india123","football","login"];
+const $=id=>document.getElementById(id);
+function analyze(p){
+  let pool=0;
+  if(/[a-z]/.test(p))pool+=26;if(/[A-Z]/.test(p))pool+=26;if(/\d/.test(p))pool+=10;if(/[^A-Za-z0-9]/.test(p))pool+=33;
+  let ent=p.length*Math.log2(pool||1);
+  const repeat=/(.)\1{2,}/.test(p);
+  const seq=/(abc|bcd|cde|123|234|345|456|567|678|789|qwe|wer|asd|sdf)/i.test(p);
+  const common=COMMON.some(c=>p.toLowerCase().includes(c));
+  if(repeat)ent*=.8;if(seq)ent*=.8;if(common)ent=Math.min(ent,20);
+  const checks=[
+    ["At least 12 characters",p.length>=12],["Lowercase letters",/[a-z]/.test(p)],["Uppercase letters",/[A-Z]/.test(p)],
+    ["Numbers",/\d/.test(p)],["Symbols",/[^A-Za-z0-9]/.test(p)],["No repeated characters (aaa)",!repeat],
+    ["No common sequences (123, qwe)",!seq],["Not a common password",!common]];
+  return{ent,checks};
+}
+function fmtTime(ent){
+  const s=Math.pow(2,ent)/2/1e10;
+  if(s<1)return"Instantly";const u=[["years",31536000],["days",86400],["hours",3600],["minutes",60],["seconds",1]];
+  if(s>31536000*1e9)return"Billions of years+";
+  for(const[n,v]of u)if(s>=v)return Math.round(s/v).toLocaleString()+" "+n;return"Instantly";
+}
+function render(){
+  const p=$("pw").value;const{ent,checks}=analyze(p);
+  $("sLen").textContent=p.length;$("sEnt").textContent=Math.round(ent)+" bits";
+  $("sTime").textContent=p?fmtTime(ent):"–";
+  const pct=Math.min(100,ent/80*100);let col="#ff4d6d",v="Very Weak";
+  if(ent>=28){col="#f5a524";v="Weak"}if(ent>=45){col="#f5d624";v="Fair"}if(ent>=60){col="#8be04e";v="Strong"}if(ent>=75){col="#2ecc71";v="Excellent"}
+  $("fill").style.width=p?pct+"%":"0";$("fill").style.background=col;$("verdict").textContent=p?"Strength: "+v:"Enter a password";
+  $("checks").innerHTML=p?checks.map(([t,ok])=>`<li class="${ok?"ok":""}">${t}</li>`).join(""):"";
+  $("breach").style.display="none";
+}
+async function sha1(s){const b=await crypto.subtle.digest("SHA-1",new TextEncoder().encode(s));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("").toUpperCase()}
+$("breachBtn").onclick=async()=>{
+  const p=$("pw").value;const box=$("breach");box.style.display="block";
+  if(!p){box.style.background="#27325e";box.textContent="Type a password first.";return}
+  box.style.background="#27325e";box.textContent="Checking…";
+  try{
+    const h=await sha1(p);const r=await fetch("https://api.pwnedpasswords.com/range/"+h.slice(0,5));
+    const t=await r.text();const m=t.split("\n").find(l=>l.startsWith(h.slice(5)));
+    if(m){const n=parseInt(m.split(":")[1]).toLocaleString();box.style.background="#5a1426";box.textContent=`⚠️ Found in ${n} known data breaches. Do NOT use this password.`}
+    else{box.style.background="#12452a";box.textContent="✅ Not found in known breaches (still use a unique password)."}
+  }catch(e){box.style.background="#5a3a0a";box.textContent="Could not reach the breach database. Check your internet connection."}
+};
+$("pw").oninput=render;
+$("toggle").onclick=()=>{const i=$("pw");i.type=i.type==="password"?"text":"password";$("toggle").textContent=i.type==="password"?"Show":"Hide"};
+$("len").oninput=()=>{$("lenV").textContent=$("len").value;gen()};
+function gen(){
+  let set="";if($("cU").checked)set+="ABCDEFGHIJKLMNOPQRSTUVWXYZ";if($("cL").checked)set+="abcdefghijklmnopqrstuvwxyz";
+  if($("cN").checked)set+="0123456789";if($("cS").checked)set+="!@#$%^&*()-_=+[]{};:,.?";
+  if(!set){$("out").value="";return}
+  const n=+$("len").value,a=new Uint32Array(n);crypto.getRandomValues(a);
+  $("out").value=[...a].map(x=>set[x%set.length]).join("");
+}
+$("gen").onclick=gen;["cU","cL","cN","cS"].forEach(i=>$(i).onchange=gen);
+$("copy").onclick=async()=>{if($("out").value){await navigator.clipboard.writeText($("out").value);$("copy").textContent="Copied!";setTimeout(()=>$("copy").textContent="Copy",1200)}};
+gen();
+</script>
+</body>
+</html>
